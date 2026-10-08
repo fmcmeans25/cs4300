@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{% block title %}Movie Theater{% endblock %}</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 760px; margin: 2rem auto; padding: 0 1rem; }
+    nav { display: flex; gap: 1rem; align-items: center; border-bottom: 1px solid #ccc; padding-bottom: .75rem; margin-bottom: 1.5rem; }
+    nav form { display: inline; margin-left: auto; }
+    .messages { list-style: none; padding: 0; }
+    .messages li { padding: .5rem .75rem; margin-bottom: .5rem; border-radius: 4px; background: #eef; }
+    .messages .error { background: #fdd; }
+    .messages .success { background: #dfd; }
+    .seats { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: .5rem; }
+    .seats label { border: 1px solid #aaa; border-radius: 4px; padding: .5rem; text-align: center; }
+    .seats .taken { background: #eee; color: #888; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border-bottom: 1px solid #ddd; padding: .5rem; text-align: left; }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="{% url 'movie_list' %}">Movies</a>
+    <a href="{% url 'booking_history' %}">My bookings</a>
+    {% if user.is_authenticated %}
+      <form method="post" action="{% url 'logout' %}">
+        {% csrf_token %}
+        <span>{{ user.username }}</span>
+        <button type="submit">Log out</button>
+      </form>
+    {% else %}
+      <a href="{% url 'login' %}" style="margin-left:auto">Log in</a>
+    {% endif %}
+  </nav>
+
+  {% if messages %}
+    <ul class="messages">
+      {% for message in messages %}<li class="{{ message.tags }}">{{ message }}</li>{% endfor %}
+    </ul>
+  {% endif %}
+
+  {% block content %}{% endblock %}
+</body>
+</html>

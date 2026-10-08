@@ -1,0 +1,24 @@
+{% extends "bookings/base.html" %}
+{% block title %}My bookings{% endblock %}
+{% block content %}
+  <h1>My bookings</h1>
+  {% if bookings %}
+    <table>
+      <tr><th>Movie</th><th>Seat</th><th>Booked on</th><th></th></tr>
+      {% for booking in bookings %}
+        <tr>
+          <td>{{ booking.movie.title }}</td>
+          <td>{{ booking.seat.seat_number }}</td>
+          <td>{{ booking.booking_date|date:"M j, Y g:i A" }}</td>
+          <td>
+            <form method="post" action="{% url 'cancel_booking' booking.id %}">
+              {% csrf_token %}<button type="submit">Cancel</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+    </table>
+  {% else %}
+    <p>You haven't booked anything yet.</p>
+  {% endif %}
+{% endblock %}

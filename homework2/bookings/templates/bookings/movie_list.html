@@ -1,0 +1,15 @@
+{% extends "bookings/base.html" %}
+{% block title %}Now showing{% endblock %}
+{% block content %}
+  <h1>Now showing</h1>
+  {% for movie in movies %}
+    <article>
+      <h2>{{ movie.title }}</h2>
+      <p>{{ movie.description }}</p>
+      <p>Released {{ movie.release_date }} &middot; {{ movie.duration }}</p>
+      <a href="{% url 'seat_booking' movie.id %}">Book seats</a>
+    </article>
+  {% empty %}
+    <p>No movies yet. Add some in the admin site.</p>
+  {% endfor %}
+{% endblock %}

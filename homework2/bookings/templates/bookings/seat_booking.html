@@ -1,0 +1,20 @@
+{% extends "bookings/base.html" %}
+{% block title %}Book {{ movie.title }}{% endblock %}
+{% block content %}
+  <h1>Book a seat: {{ movie.title }}</h1>
+  <form method="post">
+    {% csrf_token %}
+    <div class="seats">
+      {% for seat in seats %}
+        <label class="{% if seat.booking_status != 'available' %}taken{% endif %}">
+          <input type="radio" name="seat" value="{{ seat.id }}"
+                 {% if seat.booking_status != 'available' %}disabled{% endif %}>
+          {{ seat.seat_number }}
+        </label>
+      {% empty %}
+        <p>No seats have been created yet.</p>
+      {% endfor %}
+    </div>
+    <p><button type="submit">Book selected seat</button></p>
+  </form>
+{% endblock %}

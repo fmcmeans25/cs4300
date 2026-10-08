@@ -25,8 +25,11 @@ SECRET_KEY = 'django-insecure-c_2*%tbp47ji#!mxq*o+od+jy90dq8e70142h9rcp&q-0hfz0h
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['app-mightypebble4120-28.lab.devedu.io']
 
+CSRF_TRUSTED_ORIGINS = [
+    'https://app-mightypebble4120-28.lab.devedu.io',
+]
 
 # Application definition
 
@@ -37,8 +40,12 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'bookings'
+    'bookings',
+    'rest_framework',
 ]
+
+LOGIN_REDIRECT_URL = '/'
+LOGOUT_REDIRECT_URL = '/'
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
