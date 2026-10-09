@@ -4,6 +4,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import (
     AllowAny, IsAdminUser, IsAuthenticated, IsAuthenticatedOrReadOnly,
 )
@@ -13,7 +14,7 @@ from .models import Booking, Movie, Seat
 from .serializers import (
     BookingSerializer, BookSeatSerializer, MovieSerializer, SeatSerializer,
 )
-from .services import SeatUnavailable, book_seat, cancel_booking
+from .services import SeatUnavailable, book_seat, booked_seat_ids, cancel_booking
 
 
 # --------------------------------------------------------------------------
@@ -31,17 +32,42 @@ class MovieViewSet(viewsets.ModelViewSet):
 
 
 class SeatViewSet(viewsets.ReadOnlyModelViewSet):
-    """Seat availability (filter with ?status=available) and booking."""
+    """Seat availability and booking.
+
+    Use ``?movie=<id>`` to see availability for one movie, and
+    ``?status=available`` (or ``booked``) to filter."""
     queryset = Seat.objects.all()
     serializer_class = SeatSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
 
+    def _booked_ids_for_movie(self):
+        """Seat ids booked for ?movie=<id>, or None when no movie was given."""
+        movie_id = self.request.query_params.get("movie")
+        if movie_id is None:
+            return None
+        if not movie_id.isdigit():
+            raise ValidationError({"movie": "Must be a movie id."})
+        return booked_seat_ids(int(movie_id))
+
     def get_queryset(self):
         qs = super().get_queryset()
-        status_param = self.request.query_params.get("status")
-        if status_param:
-            qs = qs.filter(booking_status=status_param)
-        return qs
+        wanted = self.request.query_params.get("status")
+        if not wanted:
+            return qs
+        booked = self._booked_ids_for_movie()
+        if booked is None:  # no movie given: use the overall seat flag
+            return qs.filter(booking_status=wanted)
+        if wanted == Seat.Status.BOOKED:
+            return qs.filter(id__in=booked)
+        if wanted == Seat.Status.AVAILABLE:
+            return qs.exclude(id__in=booked)
+        return qs.none()
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        if self.action in ("list", "retrieve"):
+            context["booked_seat_ids"] = self._booked_ids_for_movie()
+        return context
 
     @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated])
     def book(self, request, pk=None):
@@ -100,11 +126,12 @@ def seat_booking(request, movie_id):
                 messages.success(request, f"Booked seat {seat.seat_number} for {movie.title}.")
                 return redirect("booking_history")
 
-    return render(
-        request,
-        "bookings/seat_booking.html",
-        {"movie": movie, "seats": Seat.objects.all()},
-    )
+    taken = booked_seat_ids(movie.id)
+    seats = list(Seat.objects.all())
+    for seat in seats:
+        seat.is_taken = seat.id in taken  # availability for THIS movie only
+
+    return render(request, "bookings/seat_booking.html", {"movie": movie, "seats": seats})
 
 
 @login_required

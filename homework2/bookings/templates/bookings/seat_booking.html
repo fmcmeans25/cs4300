@@ -9,15 +9,15 @@
     <div class="d-flex flex-wrap gap-2 mb-3">
       {% for seat in seats %}
         <input type="radio" class="btn-check" name="seat" id="seat-{{ seat.id }}" value="{{ seat.id }}"
-               autocomplete="off" {% if seat.booking_status != 'available' %}disabled{% endif %}>
-        <label class="btn {% if seat.booking_status == 'available' %}btn-outline-primary{% else %}btn-outline-secondary{% endif %}"
+               autocomplete="off" {% if seat.is_taken %}disabled{% endif %}>
+        <label class="btn {% if seat.is_taken %}btn-outline-secondary{% else %}btn-outline-primary{% endif %}"
                for="seat-{{ seat.id }}">{{ seat.seat_number }}</label>
       {% empty %}
         <div class="alert alert-warning w-100 mb-0">No seats have been created yet.</div>
       {% endfor %}
     </div>
     <div class="d-flex justify-content-between align-items-center">
-      <small class="text-muted">Grey seats are already booked.</small>
+      <small class="text-muted">Grey seats are already booked for this movie.</small>
       <button type="submit" class="btn btn-success">Book selected seat</button>
     </div>
   </form>

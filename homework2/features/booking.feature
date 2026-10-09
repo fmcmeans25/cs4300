@@ -6,7 +6,7 @@ Feature: Booking movie seats
   Background:
     Given a movie called "Dune"
     And an available seat "A1"
-    And a booked seat "A2"
+    And seat "A2" is already booked for "Dune" by another user
 
   Scenario: Browsing the movie list
     When I open the movie list page
@@ -26,6 +26,14 @@ Feature: Booking movie seats
     When I book seat "A2" for "Dune"
     Then I should see "already booked"
     And I should have 0 bookings
+
+  Scenario: The same seat can be booked for a different movie
+    Given a movie called "Arrival"
+    And I am logged in as "fran"
+    When I book seat "A1" for "Dune"
+    And I book seat "A1" for "Arrival"
+    Then I should see "Booked seat A1 for Arrival"
+    And I should have 2 bookings
 
   Scenario: Cancelling a booking frees the seat
     Given I am logged in as "fran"

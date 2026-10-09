@@ -27,9 +27,11 @@ def given_available_seat(context, number):
     Seat.objects.create(seat_number=number)
 
 
-@given('a booked seat "{number}"')
-def given_booked_seat(context, number):
-    Seat.objects.create(seat_number=number, booking_status=Seat.Status.BOOKED)
+@given('seat "{number}" is already booked for "{title}" by another user')
+def given_booked_by_other(context, number, title):
+    other = get_user_model().objects.create_user("sam", password=PASSWORD)
+    seat, _ = Seat.objects.get_or_create(seat_number=number)
+    book_seat(other, _movie(title), seat)
 
 
 @given('I am logged in as "{username}"')
@@ -109,7 +111,7 @@ def then_seat_status(context, number, status):
 
 @then("I should have {count:d} bookings")
 def then_booking_count(context, count):
-    context.test.assertEqual(Booking.objects.count(), count)
+    context.test.assertEqual(Booking.objects.filter(user=context.user).count(), count)
 
 
 @then("I should be redirected to the login page")

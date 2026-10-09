@@ -181,3 +181,81 @@ class SeedDemoCommandTests(TestCase):
         self.run_seed()
         self.assertEqual(Seat.objects.count(), 1)
         self.assertEqual(Movie.objects.count(), 1)
+
+
+class PerMovieAvailabilityTests(TestCase):
+    """The same seat can be booked for different movies, but only once per movie."""
+
+    def setUp(self):
+        User = get_user_model()
+        self.user = User.objects.create_user("fran", password="pw12345!")
+        self.other = User.objects.create_user("sam", password="pw12345!")
+        self.dune = Movie.objects.create(
+            title="Dune", release_date=date(2021, 10, 22), duration=timedelta(hours=2, minutes=35)
+        )
+        self.arrival = Movie.objects.create(
+            title="Arrival", release_date=date(2016, 11, 11), duration=timedelta(hours=1, minutes=56)
+        )
+        self.seat = Seat.objects.create(seat_number="B3")
+        self.api = APIClient()
+
+    def test_same_seat_can_be_booked_for_two_different_movies(self):
+        book_seat(self.user, self.dune, self.seat)
+        book_seat(self.other, self.arrival, self.seat)
+        self.assertEqual(Booking.objects.filter(seat=self.seat).count(), 2)
+
+    def test_same_seat_cannot_be_booked_twice_for_the_same_movie(self):
+        book_seat(self.user, self.dune, self.seat)
+        with self.assertRaises(SeatUnavailable):
+            book_seat(self.other, self.dune, self.seat)
+
+    def test_cancelling_one_movie_keeps_seat_flag_while_another_booking_remains(self):
+        first = book_seat(self.user, self.dune, self.seat)
+        book_seat(self.other, self.arrival, self.seat)
+        cancel_booking(first)
+        self.seat.refresh_from_db()
+        self.assertEqual(self.seat.booking_status, Seat.Status.BOOKED)
+
+    def test_api_booking_same_seat_for_second_movie_succeeds(self):
+        self.api.force_authenticate(self.user)
+        url = f"/api/seats/{self.seat.id}/book/"
+        self.assertEqual(self.api.post(url, {"movie": self.dune.id}).status_code, 201)
+        self.assertEqual(self.api.post(url, {"movie": self.arrival.id}).status_code, 201)
+        self.assertEqual(self.api.post(url, {"movie": self.arrival.id}).status_code, 409)
+
+    def test_api_seat_list_reports_status_for_the_requested_movie(self):
+        book_seat(self.user, self.dune, self.seat)
+        dune = self.api.get(f"/api/seats/?movie={self.dune.id}").json()
+        arrival = self.api.get(f"/api/seats/?movie={self.arrival.id}").json()
+        self.assertEqual(dune[0]["booking_status"], "booked")
+        self.assertEqual(arrival[0]["booking_status"], "available")
+
+    def test_api_status_filter_applies_per_movie(self):
+        book_seat(self.user, self.dune, self.seat)
+        free_dune = self.api.get(f"/api/seats/?movie={self.dune.id}&status=available").json()
+        free_arrival = self.api.get(f"/api/seats/?movie={self.arrival.id}&status=available").json()
+        booked_dune = self.api.get(f"/api/seats/?movie={self.dune.id}&status=booked").json()
+        self.assertEqual(free_dune, [])
+        self.assertEqual(len(free_arrival), 1)
+        self.assertEqual(len(booked_dune), 1)
+
+    def test_api_rejects_a_non_numeric_movie_filter(self):
+        self.assertEqual(self.api.get("/api/seats/?movie=abc").status_code, 400)
+
+    def test_api_unknown_status_with_movie_returns_nothing(self):
+        self.assertEqual(self.api.get(f"/api/seats/?movie={self.dune.id}&status=nope").json(), [])
+
+    def test_seat_page_only_greys_out_seats_taken_for_that_movie(self):
+        book_seat(self.other, self.dune, self.seat)
+        self.client.login(username="fran", password="pw12345!")
+        dune_page = self.client.get(f"/movies/{self.dune.id}/book/").content.decode()
+        arrival_page = self.client.get(f"/movies/{self.arrival.id}/book/").content.decode()
+        self.assertIn("disabled", dune_page)
+        self.assertNotIn("disabled", arrival_page)
+
+    def test_booking_same_seat_for_second_movie_through_html(self):
+        self.client.login(username="fran", password="pw12345!")
+        self.client.post(f"/movies/{self.dune.id}/book/", {"seat": self.seat.id})
+        r = self.client.post(f"/movies/{self.arrival.id}/book/", {"seat": self.seat.id})
+        self.assertRedirects(r, "/my-bookings/")
+        self.assertEqual(Booking.objects.filter(user__username="fran").count(), 2)

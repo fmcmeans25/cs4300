@@ -11,9 +11,21 @@ class MovieSerializer(serializers.ModelSerializer):
 
 
 class SeatSerializer(serializers.ModelSerializer):
+    """When the view passes ``booked_seat_ids`` (i.e. ``?movie=<id>`` was given),
+    ``booking_status`` is reported for that movie instead of the overall flag."""
+
     class Meta:
         model = Seat
         fields = ["id", "seat_number", "booking_status"]
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        booked = self.context.get("booked_seat_ids")
+        if booked is not None:
+            data["booking_status"] = (
+                Seat.Status.BOOKED if instance.id in booked else Seat.Status.AVAILABLE
+            )
+        return data
 
 
 class BookSeatSerializer(serializers.Serializer):

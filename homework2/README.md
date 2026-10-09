@@ -8,7 +8,7 @@ A Django web app and REST API for browsing movies, picking seats and managing bo
 - Movie listings, seat selection and booking history pages (Django templates + Bootstrap 5)
 - REST API built with Django REST Framework viewsets
 - Login/logout with Django's built-in auth; users only see their own bookings
-- Double-booking protection (a seat can only be booked once, enforced in the database and in code)
+- Double-booking protection: a seat can be booked once **per movie** (the same seat can be booked for a different movie), enforced in the database and in code
 - Unit, integration and BDD (Behave) tests
 
 ## Project structure
@@ -60,7 +60,7 @@ Then open the **app** button in the DevEdu dashboard. The DevEdu URL must be lis
 | `/accounts/login/` | Log in |
 | `/admin/` | Admin site (add movies and seats) |
 | `/api/movies/` | List movies; full CRUD (writes are admin only) |
-| `/api/seats/` | Seat availability (`?status=available`); `POST /api/seats/<id>/book/` with `{"movie": <id>}` |
+| `/api/seats/` | Seat availability. `?movie=<id>` shows status for that movie, `?status=available` filters; `POST /api/seats/<id>/book/` with `{"movie": <id>}` |
 | `/api/bookings/` | Your booking history; `POST {"movie": <id>, "seat": <id>}` to book; `DELETE /api/bookings/<id>/` to cancel |
 
 ## Tests
