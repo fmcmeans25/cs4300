@@ -130,3 +130,32 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# ---------------------------------------------------------------------------
+# Deployment (Render). Paste at the BOTTOM of settings.py.
+# ---------------------------------------------------------------------------
+import os
+
+import dj_database_url
+
+SECRET_KEY = os.environ.get("SECRET_KEY", SECRET_KEY)      # keep your old key locally
+DEBUG = os.environ.get("DEBUG", "True") == "True"          # set DEBUG=False on Render
+
+RENDER_HOST = os.environ.get("RENDER_EXTERNAL_HOSTNAME")   # set automatically by Render
+if RENDER_HOST:
+    ALLOWED_HOSTS = [*ALLOWED_HOSTS, RENDER_HOST]
+    CSRF_TRUSTED_ORIGINS = [*CSRF_TRUSTED_ORIGINS, f"https://{RENDER_HOST}"]
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+# Static files (admin CSS etc.) served by WhiteNoise
+MIDDLEWARE.insert(1, "whitenoise.middleware.WhiteNoiseMiddleware")
+STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
+}
+
+# SQLite by default; use Postgres automatically if DATABASE_URL is set
+if os.environ.get("DATABASE_URL"):
+    DATABASES["default"] = dj_database_url.config(conn_max_age=600)
