@@ -1,10 +1,12 @@
 from datetime import date, timedelta
 
 from django.contrib.auth import get_user_model
+from django.db import IntegrityError, transaction
 from django.test import TestCase
 from rest_framework.test import APIClient
 
 from .models import Booking, Movie, Seat
+from .services import SeatUnavailable, book_seat, cancel_booking
 
 
 class BookingFlowTests(TestCase):
@@ -74,4 +76,79 @@ class BookingFlowTests(TestCase):
         self.assertRedirects(r, "/my-bookings/")
         self.assertContains(self.client.get("/my-bookings/"), "A1")
         self.client.post(f"/my-bookings/{Booking.objects.get().id}/cancel/")
+        self.assertEqual(Booking.objects.count(), 0)
+
+
+# ----------------------------------------------------------------------
+# Unit tests: models and business logic in isolation
+# ----------------------------------------------------------------------
+class ModelTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user("fran", password="pw12345!")
+        self.movie = Movie.objects.create(
+            title="Dune", release_date=date(2021, 10, 22), duration=timedelta(hours=2, minutes=35)
+        )
+        self.seat = Seat.objects.create(seat_number="A1")
+
+    def test_movie_str_is_title(self):
+        self.assertEqual(str(self.movie), "Dune")
+
+    def test_movies_ordered_by_title(self):
+        Movie.objects.create(title="Arrival", release_date=date(2016, 11, 11), duration=timedelta(hours=1, minutes=56))
+        self.assertEqual([m.title for m in Movie.objects.all()], ["Arrival", "Dune"])
+
+    def test_seat_defaults_to_available(self):
+        self.assertEqual(self.seat.booking_status, Seat.Status.AVAILABLE)
+
+    def test_seat_str_shows_number_and_status(self):
+        self.assertEqual(str(self.seat), "Seat A1 (Available)")
+
+    def test_seat_number_must_be_unique(self):
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            Seat.objects.create(seat_number="A1")
+
+    def test_booking_date_is_set_automatically(self):
+        booking = Booking.objects.create(movie=self.movie, seat=self.seat, user=self.user)
+        self.assertIsNotNone(booking.booking_date)
+
+    def test_booking_str(self):
+        booking = Booking.objects.create(movie=self.movie, seat=self.seat, user=self.user)
+        self.assertEqual(str(booking), "fran - Dune - A1")
+
+    def test_same_seat_cannot_be_booked_twice_for_one_movie(self):
+        Booking.objects.create(movie=self.movie, seat=self.seat, user=self.user)
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            Booking.objects.create(movie=self.movie, seat=self.seat, user=self.user)
+
+    def test_deleting_movie_deletes_its_bookings(self):
+        Booking.objects.create(movie=self.movie, seat=self.seat, user=self.user)
+        self.movie.delete()
+        self.assertEqual(Booking.objects.count(), 0)
+
+
+class ServiceTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user("fran", password="pw12345!")
+        self.movie = Movie.objects.create(
+            title="Dune", release_date=date(2021, 10, 22), duration=timedelta(hours=2, minutes=35)
+        )
+        self.seat = Seat.objects.create(seat_number="A1")
+
+    def test_book_seat_creates_booking_and_marks_seat_booked(self):
+        booking = book_seat(self.user, self.movie, self.seat)
+        self.seat.refresh_from_db()
+        self.assertEqual(booking.user, self.user)
+        self.assertEqual(self.seat.booking_status, Seat.Status.BOOKED)
+
+    def test_book_seat_rejects_a_taken_seat(self):
+        book_seat(self.user, self.movie, self.seat)
+        with self.assertRaises(SeatUnavailable):
+            book_seat(self.user, self.movie, self.seat)
+        self.assertEqual(Booking.objects.count(), 1)
+
+    def test_cancel_booking_frees_the_seat(self):
+        booking = book_seat(self.user, self.movie, self.seat)
+        cancel_booking(booking)
+        self.seat.refresh_from_db()
+        self.assertEqual(self.seat.booking_status, Seat.Status.AVAILABLE)
         self.assertEqual(Booking.objects.count(), 0)
