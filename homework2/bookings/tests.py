@@ -1,6 +1,8 @@
 from datetime import date, timedelta
+from io import StringIO
 
 from django.contrib.auth import get_user_model
+from django.core.management import call_command
 from django.db import IntegrityError, transaction
 from django.test import TestCase
 from rest_framework.test import APIClient
@@ -152,3 +154,30 @@ class ServiceTests(TestCase):
         self.seat.refresh_from_db()
         self.assertEqual(self.seat.booking_status, Seat.Status.AVAILABLE)
         self.assertEqual(Booking.objects.count(), 0)
+
+
+class SeedDemoCommandTests(TestCase):
+    def run_seed(self):
+        out = StringIO()
+        call_command("seed_demo", stdout=out)
+        return out.getvalue()
+
+    def test_creates_demo_seats_and_movies_when_empty(self):
+        output = self.run_seed()
+        self.assertEqual(Seat.objects.count(), 20)
+        self.assertEqual(Movie.objects.count(), 3)
+        self.assertIn("Created 20 seats", output)
+        self.assertIn("Created 3 movies", output)
+
+    def test_is_safe_to_run_twice(self):
+        self.run_seed()
+        self.run_seed()
+        self.assertEqual(Seat.objects.count(), 20)
+        self.assertEqual(Movie.objects.count(), 3)
+
+    def test_does_not_touch_existing_data(self):
+        Seat.objects.create(seat_number="Z9")
+        Movie.objects.create(title="Mine", release_date=date(2020, 1, 1), duration=timedelta(hours=1))
+        self.run_seed()
+        self.assertEqual(Seat.objects.count(), 1)
+        self.assertEqual(Movie.objects.count(), 1)

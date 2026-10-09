@@ -1,15 +1,26 @@
 {% extends "bookings/base.html" %}
 {% block title %}Now showing{% endblock %}
 {% block content %}
-  <h1>Now showing</h1>
-  {% for movie in movies %}
-    <article>
-      <h2>{{ movie.title }}</h2>
-      <p>{{ movie.description }}</p>
-      <p>Released {{ movie.release_date }} &middot; {{ movie.duration }}</p>
-      <a href="{% url 'seat_booking' movie.id %}">Book seats</a>
-    </article>
-  {% empty %}
-    <p>No movies yet. Add some in the admin site.</p>
-  {% endfor %}
+  <h1 class="mb-4">Now showing</h1>
+  <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+    {% for movie in movies %}
+      <div class="col">
+        <div class="card h-100 shadow-sm">
+          <div class="card-body">
+            <h2 class="card-title h5">{{ movie.title }}</h2>
+            <p class="card-text">{{ movie.description }}</p>
+          </div>
+          <ul class="list-group list-group-flush">
+            <li class="list-group-item">Released {{ movie.release_date }}</li>
+            <li class="list-group-item">Runtime {{ movie.duration }}</li>
+          </ul>
+          <div class="card-footer bg-transparent border-0 pb-3">
+            <a href="{% url 'seat_booking' movie.id %}" class="btn btn-primary w-100">Book seats</a>
+          </div>
+        </div>
+      </div>
+    {% empty %}
+      <div class="col-12"><div class="alert alert-info">No movies yet. Add some in the admin site.</div></div>
+    {% endfor %}
+  </div>
 {% endblock %}

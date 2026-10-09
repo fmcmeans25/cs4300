@@ -1,20 +1,24 @@
 {% extends "bookings/base.html" %}
 {% block title %}Book {{ movie.title }}{% endblock %}
 {% block content %}
-  <h1>Book a seat: {{ movie.title }}</h1>
-  <form method="post">
+  <h1 class="mb-1">Book a seat</h1>
+  <p class="lead text-muted">{{ movie.title }}</p>
+
+  <form method="post" class="card card-body shadow-sm">
     {% csrf_token %}
-    <div class="seats">
+    <div class="d-flex flex-wrap gap-2 mb-3">
       {% for seat in seats %}
-        <label class="{% if seat.booking_status != 'available' %}taken{% endif %}">
-          <input type="radio" name="seat" value="{{ seat.id }}"
-                 {% if seat.booking_status != 'available' %}disabled{% endif %}>
-          {{ seat.seat_number }}
-        </label>
+        <input type="radio" class="btn-check" name="seat" id="seat-{{ seat.id }}" value="{{ seat.id }}"
+               autocomplete="off" {% if seat.booking_status != 'available' %}disabled{% endif %}>
+        <label class="btn {% if seat.booking_status == 'available' %}btn-outline-primary{% else %}btn-outline-secondary{% endif %}"
+               for="seat-{{ seat.id }}">{{ seat.seat_number }}</label>
       {% empty %}
-        <p>No seats have been created yet.</p>
+        <div class="alert alert-warning w-100 mb-0">No seats have been created yet.</div>
       {% endfor %}
     </div>
-    <p><button type="submit">Book selected seat</button></p>
+    <div class="d-flex justify-content-between align-items-center">
+      <small class="text-muted">Grey seats are already booked.</small>
+      <button type="submit" class="btn btn-success">Book selected seat</button>
+    </div>
   </form>
 {% endblock %}
